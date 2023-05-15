@@ -141,7 +141,7 @@ sub new {
 
 sub get_connection_id($) {
   my $self = shift;
-  my $sth  = $self->{dbh}->prepare(Get_Connection_Id_SQL);
+  my $sth  = $self->{dbh}->prepare(Get_Connection_Id_SQL); # SELECT CONNECTION_ID() AS Value
   $sth->execute();
   my $href = $sth->fetchrow_hashref;
   return $href->{Value};
@@ -157,7 +157,7 @@ sub connect_util {
   my $dbh      = DBI->connect( $dsn, $user, $password, { PrintError => 0 } );
   return $dbh;
 }
-
+# 它检查MySQL的错误并在一个特定的错误代码数组中查找匹配的错误代码。如果找到匹配的错误代码，它会返回一个格式化的错误消息。
 sub check_connection_fast_util {
   my $host     = shift;
   my $port     = shift;
@@ -236,7 +236,7 @@ sub get_variable {
 sub show_variable($$) {
   my $self = shift;
   my $cond = shift;
-  my $sth  = $self->{dbh}->prepare(Show_One_Variable_SQL);
+  my $sth  = $self->{dbh}->prepare(Show_One_Variable_SQL); # SHOW GLOBAL VARIABLES LIKE ?
   $sth->execute($cond);
   my $href = $sth->fetchrow_hashref;
   return $href->{Value};
@@ -245,7 +245,7 @@ sub show_variable($$) {
 sub has_repl_priv {
   my $self = shift;
   my $user = shift;
-  my $sth  = $self->{dbh}->prepare(Repl_User_SQL);
+  my $sth  = $self->{dbh}->prepare(Repl_User_SQL); # SELECT Repl_slave_priv AS Value FROM mysql.user WHERE user = ?
   my $ret  = $sth->execute($user);
   if ( !defined($ret) ) {
     croak
@@ -267,12 +267,12 @@ sub is_binlog_enabled($) {
 
 sub is_read_only($) {
   my $self = shift;
-  return $self->get_variable(Is_Readonly_SQL);
+  return $self->get_variable(Is_Readonly_SQL); # SELECT \@\@global.read_only As Value
 }
 
 sub has_gtid($) {
   my $self  = shift;
-  my $value = $self->get_variable(Has_Gtid_SQL);
+  my $value = $self->get_variable(Has_Gtid_SQL); # SELECT \@\@global.gtid_mode As Value
   if ( defined($value) && $value eq "ON" ) {
     $self->{has_gtid} = 1;
     return 1;
@@ -282,22 +282,22 @@ sub has_gtid($) {
 
 sub get_basedir($) {
   my $self = shift;
-  return $self->get_variable(Get_Basedir_SQL);
+  return $self->get_variable(Get_Basedir_SQL); # SELECT \@\@global.basedir AS Value
 }
 
 sub get_datadir($) {
   my $self = shift;
-  return $self->get_variable(Get_Datadir_SQL);
+  return $self->get_variable(Get_Datadir_SQL); # SELECT \@\@global.datadir AS Value 
 }
 
 sub get_num_workers($) {
   my $self = shift;
-  return $self->get_variable(Get_Num_Workers_SQL);
+  return $self->get_variable(Get_Num_Workers_SQL); # SELECT \@\@global.slave_parallel_workers AS Value 
 }
 
 sub get_version($) {
   my $self  = shift;
-  my $value = MHA::SlaveUtil::get_version( $self->{dbh} );
+  my $value = MHA::SlaveUtil::get_version( $self->{dbh} ); # SELECT VERSION() AS Value
   if ( $value =~ /MariaDB/ ) {
     $self->{is_mariadb} = 1;
   }
@@ -306,18 +306,18 @@ sub get_version($) {
 
 sub is_relay_log_purge($) {
   my $self = shift;
-  return MHA::SlaveUtil::is_relay_log_purge( $self->{dbh} );
+  return MHA::SlaveUtil::is_relay_log_purge( $self->{dbh} ); # SELECT \@\@global.relay_log_purge As Value
 }
 
 sub disable_relay_log_purge($) {
   my $self = shift;
-  return MHA::SlaveUtil::disable_relay_log_purge( $self->{dbh} );
+  return MHA::SlaveUtil::disable_relay_log_purge( $self->{dbh} ); # SET GLOBAL relay_log_purge=0
 }
 
 sub get_relay_log_info_type {
   my ( $self, $mysql_version ) = @_;
   return MHA::SlaveUtil::get_relay_log_info_type( $self->{dbh},
-    $mysql_version );
+    $mysql_version ); # SELECT \@\@global.relay_log_info_repository AS Value
 }
 
 sub get_relay_log_info_path {
@@ -345,14 +345,14 @@ sub set_max_allowed_packet($$) {
 
 sub set_max_allowed_packet_1g($) {
   my $self = shift;
-  return $self->execute(Set_MaxAllowedPacket1G_SQL);
+  return $self->execute(Set_MaxAllowedPacket1G_SQL); # SET GLOBAL max_allowed_packet=1*1024*1024*1024
 }
 
 sub show_master_status($) {
   my $self = shift;
   my ( $query, $sth, $href );
-  my %values;
-  $query = Show_Master_Status_SQL;
+  my %values; # 定义一个字典
+  $query = Show_Master_Status_SQL; # SHOW MASTER STATUS
   $sth   = $self->{dbh}->prepare($query);
   my $ret = $sth->execute();
   return if ( !defined($ret) || $ret != 1 );
@@ -371,7 +371,7 @@ sub show_master_status($) {
   );
 
 }
-
+# 如果执行的结果 $ret 的值为 undef 或者不等于 $expected_affected_rows，则意味着更新操作失败。
 sub execute_update {
   my ( $self, $query, $expected_affected_rows, $bind_args ) = @_;
   my %status = ();
@@ -411,9 +411,9 @@ sub flush_tables_nolog($) {
 
 sub flush_tables_with_read_lock($) {
   my $self = shift;
-  my $result = $self->execute(Set_Readonly_SQL);
+  my $result = $self->execute(Set_Readonly_SQL); # SET GLOBAL read_only=1
     if ($result) {
-       $result = $self->execute(Flush_Tables_With_Read_Lock_SQL);
+       $result = $self->execute(Flush_Tables_With_Read_Lock_SQL); # FLUSH TABLES WITH READ LOCK
     }
   return $result;
 }
@@ -434,17 +434,17 @@ sub set_wait_timeout_util($$) {
 
 sub set_long_wait_timeout($) {
   my $self = shift;
-  return $self->execute(Set_Long_Wait_Timeout_SQL);
+  return $self->execute(Set_Long_Wait_Timeout_SQL); # SET wait_timeout=86400
 }
 
 sub reset_slave_master_host($) {
   my $self = shift;
-  return $self->execute(Reset_Slave_Master_Host_SQL);
+  return $self->execute(Reset_Slave_Master_Host_SQL); # RESET SLAVE /*!50516 ALL */ 
 }
 
 sub reset_slave_by_change_master($) {
   my $self = shift;
-  return $self->execute(Change_Master_Clear_SQL);
+  return $self->execute(Change_Master_Clear_SQL); # CHANGE MASTER TO MASTER_HOST=''
 }
 
 sub change_master($$$$$$$) {
@@ -492,12 +492,12 @@ sub change_master_gtid($$$$$) {
 
 sub disable_log_bin_local($) {
   my $self = shift;
-  return $self->execute(Unset_Log_Bin_Local_SQL);
+  return $self->execute(Unset_Log_Bin_Local_SQL); # SET sql_log_bin=0
 }
 
 sub enable_log_bin_local($) {
   my $self = shift;
-  return $self->execute(Set_Log_Bin_Local_SQL);
+  return $self->execute(Set_Log_Bin_Local_SQL); # SET sql_log_bin=1
 }
 
 sub enable_read_only($) {
@@ -506,7 +506,7 @@ sub enable_read_only($) {
     return 0;
   }
   else {
-    return $self->execute(Set_Readonly_SQL);
+    return $self->execute(Set_Readonly_SQL); # SET GLOBAL read_only=1
   }
 }
 
@@ -516,7 +516,7 @@ sub disable_read_only($) {
     return 0;
   }
   else {
-    return $self->execute(Unset_Readonly_SQL);
+    return $self->execute(Unset_Readonly_SQL); 
   }
 }
 
@@ -554,7 +554,7 @@ sub stop_slave() {
   my $self = shift;
   return $self->execute(Stop_Slave_SQL);
 }
-
+# 将一个以逗号分隔的字符串作为参数传入，然后将其转化为一个数组，并去重、排序后再将其转化回一个以逗号分隔的字符串
 sub uniq_and_sort {
   my $str = shift;
   my @array = split( /,/, $str );
@@ -655,11 +655,10 @@ sub read_all_relay_log {
   my $log                  = shift;
   my $num_worker_threads   = shift;
   my $wait_until_latest    = shift;
-  my $io_thread_should_run = shift;
+  my $io_thread_should_run = shift; #wait_until_relay_io_log_applied和read_all_relay_log 的区别是前者会将$io_thread_should_run 设置为 1
   $wait_until_latest    = 0 if ( !defined($wait_until_latest) );
   $io_thread_should_run = 0 if ( !defined($io_thread_should_run) );
   my $sql_thread_check;
-
   my %status;
   do {
     $sql_thread_check = 1;
@@ -678,15 +677,16 @@ sub read_all_relay_log {
       return %status;
     }
     elsif ( ( $status{Master_Log_File} eq $status{Relay_Master_Log_File} )
-      && ( $status{Read_Master_Log_Pos} == $status{Exec_Master_Log_Pos} ) )
+      && ( $status{Read_Master_Log_Pos} == $status{Exec_Master_Log_Pos} ) ) # 代表已经应用完了
     {
       $status{Status} = 0;
       return %status;
     }
-
+    # 如果IO线程的状态不是 Waiting for master to send event，则会将sql_thread_check设置为0，这样就不用检查SQL线程的状态了
     if ($io_thread_should_run) {
       if (!$status{Slave_IO_State}
-        || $status{Slave_IO_State} !~ m/Waiting for master to send event/ )
+        || $status{Slave_IO_State} !~ m/Waiting for master to send event/ 
+        || $status{Slave_IO_State} !~ m/Waiting for source to send event/ ) 
       {
         $sql_thread_check = 0;
       }
@@ -702,20 +702,20 @@ sub read_all_relay_log {
         my $state = $ref->{State};
         if ( defined($user)
           && $user eq "system user"
-          && defined($state) )
+          && defined($state) ) # 只检查user是system user的连接
         {
-          if ( $state =~ m/^Has read all relay log/
+          if ( $state =~ m/^Has read all relay log/ || $state =~ m/^Replica has read all relay log/
             || $state =~ m/^Slave has read all relay log/ )
-          {
+          { # 如果 $num_worker_threads 不等于 0，则匹配上面状态的线程是 Coordinator 线程，否则就是sql线程
             $sql_thread_done = 1;
             if ( $num_worker_threads == 0 ) {
               $worker_thread_done = 1;
             }
             if ($worker_thread_done) {
-              last;
+              last; # last 命令用于退出 for、foreach、while、until 等循环语句，跳出循环体。
             }
           }
-          elsif ( $state =~ m/^Waiting for an event from Coordinator/ ) {
+          elsif ( $state =~ m/^Waiting for an event from Coordinator/ ) { # 代表工作线程在等待 Coordinator 分配 event
             $current_workers++;
             if ( $current_workers >= $num_worker_threads ) {
               $worker_thread_done = 1;
@@ -723,7 +723,7 @@ sub read_all_relay_log {
           }
         }
         if ( $worker_thread_done == 1 && $sql_thread_done == 1 ) {
-          last;
+          last; # 如果工作线程和Coordinator 线程（sql线程）已经处理完了event，则会退出循环
         }
       }
       if ( $sql_thread_done == 1 && $worker_thread_done == 1 ) {
@@ -737,7 +737,7 @@ sub read_all_relay_log {
         )
       );
     }
-  } while ( $wait_until_latest && sleep(1) );
+  } while ( $wait_until_latest && sleep(1) ); # 注意，这里没有超时时间，所以会一直循环
 
   $status{Status} = 1;
   $status{Errstr} =
@@ -766,22 +766,22 @@ sub get_threads_util {
     my $query_time = $ref->{Time};
     my $info       = $ref->{Info};
     $info =~ s/^\s*(.*?)\s*$/$1/ if defined($info);
-    next if ( $my_connection_id == $id );
-    next if ( defined($query_time) && $query_time < $running_time_threshold );
-    next if ( defined($command)    && $command =~ /^Binlog Dump/ );
-    next if ( defined($user)       && $user eq "system user" );
+    next if ( $my_connection_id == $id ); # 如果当前记录的 Id 列值等于当前连接的 id，则跳过。
+    next if ( defined($query_time) && $query_time < $running_time_threshold ); # 如果当前记录的 Time 列值小于设定的阈值，则跳过。
+    next if ( defined($command)    && $command =~ /^Binlog Dump/ ); # 如果当前记录的 Command 列值为 Binlog Dump，则跳过。
+    next if ( defined($user)       && $user eq "system user" ); # 如果当前记录的 User 列值为 system user 或 event_scheduler，则跳过
     next if ( defined($user)       && $user eq "event_scheduler" );
 
-    if ( $type >= 1 ) {
+    if ( $type >= 1 ) { # 如果 $type >= 1，则如果当前记录的 Command 列值为 Sleep 或 Connect，则跳过。
       next if ( defined($command) && $command eq "Sleep" );
       next if ( defined($command) && $command eq "Connect" );
     }
 
-    if ( $type >= 2 ) {
+    if ( $type >= 2 ) { # 如果 $type >= 2，则如果当前记录的 Info 列值以 select 或 show 开头（不区分大小写），则跳过。
       next if ( defined($info) && $info =~ m/^select/i );
       next if ( defined($info) && $info =~ m/^show/i );
     }
-    push @threads, $ref;
+    push @threads, $ref; # 最后将符合条件的记录加入到一个数组 @threads 中。
   }
   return @threads;
 }
@@ -808,13 +808,13 @@ sub get_threads($$$) {
   return MHA::DBHelper::get_threads_util( $self->{dbh}, $self->{connection_id},
     $running_time_threshold, $type );
 }
-
+# 除了主从相关的线程和Sleep状态的线程，其它都满足条件
 sub get_running_threads($$) {
   my $self                   = shift;
   my $running_time_threshold = shift;
   return $self->get_threads( $running_time_threshold, 1 );
 }
-
+# 在上面的基础上，还会剔除select 或 show 开头的SQL 
 sub get_running_update_threads($$) {
   my $self                   = shift;
   my $running_time_threshold = shift;
@@ -827,7 +827,7 @@ sub kill_threads {
     kill_thread_util( $self->{dbh}, $_->{Id} );
   }
 }
-
+# kill 连接，如果连接不存在，则正常返回，否则抛出异常（croak $@）
 sub kill_thread_util {
   my $dbh = shift;
   my $id  = shift;
@@ -850,7 +850,7 @@ sub rename_user($$$) {
   my $from_user = shift;
   my $to_user   = shift;
 
-  my $query = sprintf( Rename_User_SQL, $from_user, $to_user );
+  my $query = sprintf( Rename_User_SQL, $from_user, $to_user ); # RENAME USER '%s'\@'%%' TO '%s'\@'%%'
   return $self->execute($query);
 }
 
@@ -863,7 +863,7 @@ sub master_pos_wait($$$) {
   my $self        = shift;
   my $binlog_file = shift;
   my $binlog_pos  = shift;
-  my $sth         = $self->{dbh}->prepare(Master_Pos_Wait_NoTimeout_SQL);
+  my $sth         = $self->{dbh}->prepare(Master_Pos_Wait_NoTimeout_SQL); # SELECT MASTER_POS_WAIT(?,?,0) AS Result
   $sth->execute( $binlog_file, $binlog_pos );
   my $href = $sth->fetchrow_hashref;
   return $href->{Result};
@@ -872,7 +872,7 @@ sub master_pos_wait($$$) {
 sub gtid_wait($$) {
   my $self      = shift;
   my $exec_gtid = shift;
-  my $sth       = $self->{dbh}->prepare(Gtid_Wait_NoTimeout_SQL);
+  my $sth       = $self->{dbh}->prepare(Gtid_Wait_NoTimeout_SQL); # SELECT WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS(?,0) AS Result
   $sth->execute($exec_gtid);
   my $href = $sth->fetchrow_hashref;
   return $href->{Result};
