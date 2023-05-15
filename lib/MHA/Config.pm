@@ -32,8 +32,8 @@ use MHA::ManagerConst;
 
 my @PARAM_ARRAY =
   qw/ hostname ip port ssh_host ssh_ip ssh_port ssh_connection_timeout ssh_options node_label candidate_master no_master ignore_fail skip_init_ssh_check skip_reset_slave user password repl_user repl_password disable_log_bin master_pid_file handle_raw_binlog ssh_user remote_workdir master_binlog_dir log_level manager_workdir manager_log check_repl_delay check_repl_filter latest_priority multi_tier_slave ping_interval ping_type secondary_check_script master_ip_failover_script master_ip_online_change_script shutdown_script report_script init_conf_load_script client_bindir client_libdir use_gtid_auto_pos/;
-my %PARAM;
-for (@PARAM_ARRAY) { $PARAM{$_} = 1; }
+my %PARAM; # 定义一个字典
+for (@PARAM_ARRAY) { $PARAM{$_} = 1; } # 将字典的初始值设置为1
 
 sub new {
   my $class = shift;
@@ -49,8 +49,8 @@ sub new {
 sub parse_server {
   my $self      = shift;
   my $param_arg = shift;
-  my $default   = shift;
-
+  my $default   = shift; # 全局文件中的配置，默认是/etc/masterha_default.cnf,通过 --global_conf 设置
+  # 对一个字典进行遍历，检查其键名是否在指定的参数列表中。
   my %value;
   foreach my $key ( sort keys(%$param_arg) ) {
     unless ( exists( $PARAM{$key} ) ) {
@@ -295,12 +295,12 @@ sub parse_server {
   my $server = new MHA::Server();
   foreach my $key ( keys(%PARAM) ) {
     if ( $value{$key} ) {
-      $value{$key} =~ s/^['"]?(.*)['"]$/$1/;
+      $value{$key} =~ s/^['"]?(.*)['"]$/$1/; # 去除字符串两端可能存在的单引号或双引号
     }
     $server->{$key} = $value{$key};
   }
-
-  # set escaped_user and escaped_password
+  # 对用户名和密码进行转义，确保转义后的字符串可以直接作为shell命令的参数。
+  # set escaped_user and escaped_password 
   foreach my $key ( 'user', 'password' ) {
     my $new_key       = "escaped_" . $key;
     my $new_mysql_key = "mysql_escaped_" . $key;
@@ -329,8 +329,8 @@ sub check_positive_int($$) {
 sub read_config($) {
   my $self              = shift;
   my $log               = $self->{logger};
-  my @servers           = ();
-  my @binlog_servers    = ();
+  my @servers           = (); # 空数组
+  my @binlog_servers    = (); # 空数组
   my $global_configfile = $self->{globalfile};
   my $configfile        = $self->{file};
   my $sd;
@@ -341,7 +341,7 @@ sub read_config($) {
 
     $log->info("Reading default configuration from $self->{globalfile}..")
       if ($log);
-    $sd = $self->parse_server_default( $global_cfg->{"server default"} );
+    $sd = $self->parse_server_default( $global_cfg->{"server default"} ); 
   }
   else {
     $log->warning(
@@ -356,7 +356,7 @@ sub read_config($) {
 
   # Read application default settings
   $sd = $self->parse_server( $cfg->{"server default"}, $sd );
-
+  # init_conf_load_script是一个脚本，可用来保存敏感信息，如账号和密码
   if ( defined( $sd->{init_conf_load_script} ) ) {
     $log->info( "Updating application default configuration from "
         . $sd->{init_conf_load_script}
@@ -373,7 +373,7 @@ sub read_config($) {
   }
 
   $log->info("Reading server configuration from $self->{file}..") if ($log);
-
+  # 获取所有配置块的名称，并按字母顺序排序
   my @blocks = sort keys(%$cfg);
   foreach my $block (@blocks) {
     next if ( $block eq "server default" );
@@ -384,9 +384,9 @@ sub read_config($) {
       croak($msg);
     }
     my $server = $self->parse_server( $cfg->{$block}, $sd );
-    $server->{id} = $block;
+    $server->{id} = $block; # 将 id 属性设置为块的名称
     if ( $block =~ /^server\S+/ ) {
-      push( @servers, $server );
+      push( @servers, $server ); # 如果块的名称以 server 开头，则将其添加到 @servers 数组中
     }
     elsif ( $block =~ /^binlog\S+/ ) {
       push( @binlog_servers, $server );
@@ -394,9 +394,9 @@ sub read_config($) {
   }
   my @tmp;
   foreach (@servers) {
-    push @tmp, [ $1, $_ ] if ( $_->{id} =~ m/^server\D*([\d]+).*/ );
+    push @tmp, [ $1, $_ ] if ( $_->{id} =~ m/^server\D*([\d]+).*/ ); # 获取 server 后面的数字
   }
-
+  # 如果所有的服务器 ID 都是整数，就按照这些整数进行升序排序，并将排序后的服务器信息重新赋值给 @servers 数组。
   # If all IDs are integers, sort by intergers
   if ( $#servers == $#tmp ) {
     @servers = map { $_->[1] } ( sort { $a->[0] <=> $b->[0] } @tmp );
@@ -437,7 +437,6 @@ sub read_config($) {
       }
     }
   }
-
   return ( \@servers, \@binlog_servers );
 }
 
@@ -457,7 +456,7 @@ sub print_msg {
     print "$msg\n";
   }
 }
-
+# 添加指定配置块
 sub add_block_and_save {
   my $file       = shift;
   my $block_name = shift;
@@ -489,7 +488,7 @@ sub add_block_and_save {
   $msg = "Wrote $block_name entry to $file .";
   print_msg( $msg, $log );
 }
-
+# 删除指定配置块
 sub delete_block_and_save {
   my $file       = shift;
   my $block_name = shift;
@@ -506,7 +505,7 @@ sub delete_block_and_save {
     print_msg( $msg, $log );
     return;
   }
-  delete $config->{$block_name};
+  delete $config->{$block_name}; # 删除
   $config->write($file);
   $msg = "Deleted $block_name entry from $file .";
   print_msg( $msg, $log );
