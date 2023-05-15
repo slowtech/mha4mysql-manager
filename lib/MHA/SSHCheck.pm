@@ -44,7 +44,7 @@ sub do_ssh_connection_check {
   my @servers     = @$servers_ref;
   $log->info("Starting SSH connection tests..");
   my $failed = 0;
-  my $pm     = new Parallel::ForkManager( $#servers + 1 );
+  my $pm     = new Parallel::ForkManager( $#servers + 1 ); # $#servers + 1 表示需要创建的子进程数量。
 
   $pm->run_on_start(
     sub {
@@ -85,7 +85,7 @@ sub do_ssh_connection_check {
     my ( $file, $pplog );
     eval {
       $SIG{INT} = $SIG{HUP} = $SIG{QUIT} = $SIG{TERM} = "DEFAULT";
-      $pm->finish(0) if ( $src->{skip_init_ssh_check} );
+      $pm->finish(0) if ( $src->{skip_init_ssh_check} ); # 如果设置了 skip_init_ssh_check，子进程会直接退出
       $file = "$workdir/$src->{ssh_host}_$src->{ssh_port}_ssh_check.log";
       unlink $file;
       $pplog = Log::Dispatch->new( callbacks => $MHA::ManagerConst::log_fmt );
@@ -98,9 +98,9 @@ sub do_ssh_connection_check {
           mode      => 'append'
         )
       );
-      foreach my $dst (@servers) {
-        next if ( $dst->{skip_init_ssh_check} );
-        next if ( $src->{id} eq $dst->{id} );
+      foreach my $dst (@servers) { # 假如有3个节点：node1，node2，node3，manager会通过ssh分别登陆到这3个节点上，然后通过ssh去检查其它两个节点的联通性。
+        next if ( $dst->{skip_init_ssh_check} ); # 如果目标主机设置了 skip_init_ssh_check，则跳过
+        next if ( $src->{id} eq $dst->{id} ); # 如果源主机和目标主机是同一个配置块，则跳过
         $pplog->debug(
 " Connecting via SSH from $src->{ssh_user}\@$src->{ssh_host}($src->{ssh_ip}:$src->{ssh_port}) to $dst->{ssh_user}\@$dst->{ssh_host}($dst->{ssh_ip}:$dst->{ssh_port}).."
         );
@@ -145,7 +145,7 @@ sub main {
     globalfile => $g_global_config_file,
     file       => $g_config_file
   );
-  my ( $sc_ref, undef ) = $conf->read_config();
+  my ( $sc_ref, undef ) = $conf->read_config(); # 注意，它这里没有检测 binlog_servers 的连通性
   my @servers_config = @$sc_ref;
   $log = MHA::ManagerUtil::init_log( undef, "debug" );
   return do_ssh_connection_check( \@servers_config, $log, "debug", "/tmp" );
