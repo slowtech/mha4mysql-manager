@@ -37,7 +37,7 @@ $| = 1;
 GetOptions(
   'help'              => \$help,
   'version'           => \$version,
-  'secondary_host=s'  => \@monitoring_servers,
+  'secondary_host=s'  => \@monitoring_servers, # monitoring_servers 是数组类型，意味着--secondary_host可指定多次。
   'user=s'            => \$ssh_user,
   'port=s'            => \$ssh_port,
   'options=s'         => \$ssh_options,
@@ -90,15 +90,15 @@ foreach my $monitoring_server (@monitoring_servers) {
     . "\\\"use IO::Socket::INET; my \\\\\\\$sock = IO::Socket::INET->new"
     . "(PeerAddr => \\\\\\\"$master_host\\\\\\\", PeerPort=> $master_port, "
     . "Proto =>'tcp', Timeout => $timeout); if(\\\\\\\$sock) { close(\\\\\\\$sock); "
-    . "exit 3; } exit 0;\\\" \"";
-  my $ret = system($command);
+    . "exit 3; } exit 0;\\\" \""; # 尝试使用IO::Socket::INET模块创建一个到由$master_host和端口$master_port指定的主机的TCP连接。
+  my $ret = system($command); # 如果连接成功（即$sock变量被定义），则关闭套接字并以返回码3退出脚本。 如果连接失败，则以返回码0退出脚本。
   $ret = $ret >> 8;
-  if ( $ret == 0 ) {
+  if ( $ret == 0 ) { # 退出码为0，则表示监控服务器$monitoring_server可以访问，但从该服务器无法访问主服务器。
     print
 "Monitoring server $monitoring_server is reachable, Master is not reachable from $monitoring_server. OK.\n";
     next;
   }
-  if ( $ret == 3 ) {
+  if ( $ret == 3 ) { 退出码为3，表示主服务器可以访问。
     if ( defined $ping_type
       && $ping_type eq $MHA::ManagerConst::PING_TYPE_INSERT )
     {
